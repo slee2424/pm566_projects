@@ -48,8 +48,10 @@ Midterm Project - Diabetes Indicators
     <https://doi.org/10.7910/DVN/JAW6AX>, Harvard Dataverse, V2,
     UNF:6:QOwrJ53n2F5fMC+wb4ADVA== \[fileUNF\]
 
-  - Key question: Whether diabetes risk factors affects the
-    outcome.
+  - Key question: Whether diabetes risk factors are associated with the
+    outcome. Whether Diabetes Pedigree Function has significant
+    association with outcome and other risk
+    factors.
 
 <!-- end list -->
 
