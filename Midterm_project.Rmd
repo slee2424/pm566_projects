@@ -1,0 +1,327 @@
+---
+title: "Midterm Project - Diabetes Indicators"
+output: github_document
+always_allow_html: true
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+
+- Diabetes is a complex metabolic syndrome and its involvement in cardiovascular disease is manifold with varying manifestations and different clinical symptoms and prognosis. Although being probably the most important risk factor, diabetes is often considered an “accompanying comorbidity” for cardiac or peripheral artery disease, hypertension, or stroke. An interesting study demonstrated that the risk of sudden cardiac death is at least 2-fold higher in patients who are diabetic compared with those who are nondiabetic, regardless of the extent of cardiac dysfunction or symptoms of heart failure. In contrast, the risk of nonsudden cardiac death was not signiﬁcantly different between the 2 groups. 
+
+- Preventing sudden cardiac death by analyzing diabetes is worth trying as it is the leading cause of death in the United States. The object of this study is to find out if diabetes risk prediction is possible based on family history and genetic factors along with other risk factors. This study is focused on whether Diabetes Pedigree Function is truly associated with outcome and if so, what risk factors are significantly related with it. The association between Diabetes Pedigree Function and disease status would reveal to what extent does the genetic factors affects diabetes. The dataset did not separate type 1 diabetes and type 2 dabetes. Regardless of the type of diabetes, however, Diabetes Pedigree Function can be assessed as family history is one of the important risk factors for both type of diabetes. In the analysis, important indicators of diabetes will be evaluated together.
+
+# Methods
+- Linear regression was performed for the association between Diabetes Pedigree Function and outcome, including the examination of the effect of lipotoxicity, glucose level, Blood Pressure, Skin Thickness, insulin level, BMI, and age. The dataset was downloaded from Haverd Dataverse and the reference is stated below. The data was cleaned by replacing extreme values to 'NA's, shortening variable names, and creating new factor variable for better analysis. Skim function from skimr package was used to explore data. Dim, head and tail, summary, and table functions were used to check detailed observations. 
+
+
+- Reference: P. Rodgers, Judith, 2020, "Diabetes Mellitus “Comorbidity” or an Important Risk Factor?", https://doi.org/10.7910/DVN/JAW6AX, Harvard Dataverse, V2, UNF:6:QOwrJ53n2F5fMC+wb4ADVA== [fileUNF]
+
+- Key question: Whether diabetes risk factors affects the outcome. 
+
+```{r}
+library(tidyverse)
+library(skimr)
+library(olsrr)
+```
+
+# Data description
+
+- Lipotoxicity: lipotoxicity is a metabolic syndrome that results from the accumulation of lipid intermediates in non-adipose tissue, leading to cellular dysfunction and death.
+
+- Glucose: blood glucose level is the concentration of glucose present in the blood.
+
+- BloodPressure: the pressure of the blood in the circulatory system.
+
+- SkinThickness: skin thickness is primarily determined by collagen content and is increased in insulin-dependent diabetes mellitus (IDDM).
+
+- Insulin: insulin is an anabolic hormone that promotes glucose uptake.
+
+- BMI: body mass index (BMI) is a person's weight in kilograms divided by the square of height in meters.
+
+- DiabetesPedigreeFunction: diabetes pedigree function provides “a synthesis of the diabetes mellitus history in relatives and the genetic relationship of those relatives to the subject.” It utilizes information from a person’s family history to predict how diabetes will affect that individual.
+
+- Age: age of the individual.
+
+- Outcome: diabetes diagosis.
+
+
+```{r}
+diabetes <- read_csv("data/diabetes.csv")
+```
+
+
+# Exploratory Data Analysis
+
+- The total dataset includes 768 observations with 9 vaiables. 
+
+- Lipotoxicity is right skewed and ranged from 0 to 17 with mean of 3.85. 
+
+- Glucose level is not skewed to either side and ranged from 0 to 199 with mean of 121. 
+
+- Blood Pressure is also not skewed and ranged from 0 to 122 with mean of 69.1. 
+
+- Skin Thickness right skewed and ranged from 0 to 99. 
+
+- Insulin level is extremly right skewed and ranged from 0 to 846. 
+
+- BMI is fairly normally distributed and ranged from 0 to 67.1. 
+
+- Diabetes Pedigree Function is right skewed and ranged from 0.078 to 2.42.
+
+- Age is right skewed and ranged from 21 to 81. Right skewed age data displays more than 50% of observations are in the age group of 20 to 29. This data is more focused on young population.
+
+- Outcome has binary results with mean of 0.349 which means 34.9% of all observations have diabetes positive outcome.
+
+```{r}
+skim(diabetes)
+```
+
+
+- 0 values in all risk factors are speculated as an absence of the specific test outcome because there were significant different in values between all 0s and the next minimum values of each variable. All of them are edited to "NA"s. 
+
+```{r}
+db <-
+  diabetes %>%
+  mutate(Lipotoxicity = replace(Lipotoxicity, Lipotoxicity==0, NA))%>%
+  mutate(Glucose = replace(Glucose, Glucose==0, NA)) %>%
+  mutate(BloodPressure = replace(BloodPressure, BloodPressure==0, NA)) %>%
+  mutate(SkinThickness = replace(SkinThickness, SkinThickness==0, NA)) %>%
+  mutate(Insulin = replace(Insulin, Insulin==0, NA)) %>%
+  mutate(BMI = replace(BMI, BMI==0, NA))
+  
+```
+
+
+- Variable names are renamed into lowercase letters with shorter length.
+
+```{r}
+db <- 
+  db %>%
+  rename(
+    lip = Lipotoxicity,
+    glu = Glucose,
+    bp = BloodPressure,
+    st = SkinThickness,
+    ins = Insulin,
+    bmi = BMI,
+    dpf = DiabetesPedigreeFunction,
+    age = Age,
+    outcome = Outcome
+    )
+```
+
+
+- Create age groups to compare proportion of the diabetes by age groups. 
+
+```{r}
+db$age_group <- ifelse(db$age < 30, "20-29", 
+                         ifelse(db$age >= 30 & db$age < 40, "30-39",
+                                ifelse(db$age >= 40 & db$age < 50, "40-49", "50+")))
+
+```
+
+```{r eval=FALSE}
+table(diabetes$Lipotoxicity)
+table(db$Lipotoxicity)
+
+table(diabetes$BloodPressure)
+table(db$BloodPressure)
+
+table(diabetes$SkinThickness)
+table(db$SkinThickness)
+
+table(diabetes$Insulin)
+table(db$Insulin)
+
+table(diabetes$BMI)
+table(db$BMI)
+
+table(diabetes$DiabetesPedigreeFunction)
+table(db$BMI)
+```
+
+
+# Preliminary results (regression model & data visualization)
+
+### Disease outcome by age_groups.
+
+- Age is significant risk factor of diabetes
+```{r}
+db <-
+  db %>%
+  mutate(outcome_f = factor(outcome))
+
+db %>%
+  ggplot()+
+  geom_bar(mapping = aes(x = age_group, fill = outcome_f, stat="identity"))+
+  labs(title = "Diabetes outcome by age groups")
+
+model_agegroup <- lm(outcome ~ age_group, data=db)
+summary(model_agegroup)
+
+```
+
+### Preliminary regression model 
+
+- linear regression and multiple regression was performed. 
+- No significant colliniarity was detected by examining variace inflation factor. 
+- Model 2 should be used for analysis as it has greater R-squared value while remaining statistical significance (p < 0.05).
+
+```{r}
+model1 <- lm(outcome ~ dpf, data=db)
+
+summary(model1)
+
+model1 %>%
+  ggplot(mapping = aes(y=outcome, x=dpf))+
+  geom_point()+
+  geom_smooth(method=lm)
+
+
+model2 <- lm(outcome ~ dpf + lip + glu + bp + st + ins + bmi + age, data=db)
+
+summary(model2)
+
+model2 %>%
+  ggplot(mapping = aes(y=outcome, x=dpf))+
+  geom_point()+
+  geom_smooth(method=lm)
+
+
+model2 %>% ols_vif_tol()
+```
+
+
+- Check difference between each risk factors by disease status (1: diagnosed diabetes, 0: No diabetes): all indicators in diabetes group has higher values.
+
+```{r}
+db_ot <- 
+  db %>% 
+  group_by(outcome)
+  
+db_table <-
+  db_ot %>%
+  summarise(
+    DiabetesPedigreeFunction=mean(dpf),
+    Lipotoxicity=mean(lip, na.rm = TRUE),
+    Glucose=mean(glu, na.rm = TRUE),
+    BloodPressur=mean(bp, na.rm = TRUE),
+    SkinThickness=mean(st, na.rm = TRUE),
+    Insulin=mean(ins, na.rm = TRUE),
+    BMI=mean(bmi, na.rm = TRUE),
+    Age=mean(age, na.rm = TRUE),
+    )
+
+knitr::kable(db_table, align= "c", digits = 4, caption = "Mean of each risk factors by outcome group")
+```
+
+#### regression model for the association between dpf and other risk factors.
+
+- Lipotoxicity vs Diabetes Pedigree Function: no association (p > 0.05).
+```{r}
+model_lip <- lm(lip ~ dpf, data=db)
+summary(model_lip)
+
+model_lip %>%
+  ggplot(mapping = aes(y=lip, x=dpf))+
+  geom_point()+
+  geom_smooth(method=lm)
+```
+
+- Glucose level vs Diabetes Pedigree Function: The association is statistically significant (p < 0.001).
+```{r}
+model_glu <- lm(glu ~ dpf, data=db)
+summary(model_glu)
+
+model_glu %>%
+  ggplot(mapping = aes(y=glu, x=dpf))+
+  geom_point()+
+  geom_smooth(method=lm)
+```
+
+- Blood Pressure vs Diabetes Pedigree Function: No association (p > 0.05).
+```{r}
+model_bp <- lm(bp ~ dpf, data=db)
+summary(model_bp)
+
+model_bp %>%
+  ggplot(mapping = aes(y=bp, x=dpf))+
+  geom_point()+
+  geom_smooth(method=lm)
+```
+
+- Skin Thickness vs Diabetes Pedigree Function: The association is statistically significant (p < 0.01).
+```{r}
+model_st <- lm(st ~ dpf, data=db)
+summary(model_st)
+
+model_st %>%
+  ggplot(mapping = aes(y=st, x=dpf))+
+  geom_point()+
+  geom_smooth(method=lm)
+```
+
+- Insulin level vs Diabetes Pedigree Function: The association is statistically significant (p < 0.01).
+```{r}
+model_ins <- lm(ins ~ dpf, data=db)
+summary(model_ins)
+
+model_ins %>%
+  ggplot(mapping = aes(y=ins, x=dpf))+
+  geom_point()+
+  geom_smooth(method=lm)
+```
+
+- BMI vs Diabetes Pedigree Function: The association is statistically significant (p < 0.001).
+```{r}
+model_bmi <- lm(bmi ~ dpf, data=db)
+summary(model_bmi)
+
+model_bmi %>%
+  ggplot(mapping = aes(y=bmi, x=dpf))+
+  geom_point()+
+  geom_smooth(method=lm)
+```
+
+- Age vs Diabetes Pedigree Function: No association (p > 0.05).
+```{r}
+model_age <- lm(age ~ dpf, data=db)
+summary(model_age)
+
+model_age %>%
+  ggplot(mapping = aes(y=age, x=dpf))+
+  geom_point()+
+  geom_smooth(method=lm)
+
+```
+
+### Mean value differences of each risk factors that has association with Diabetes Pedigree Function for high DPF vs low DPF.
+```{r}
+db_dpf <- 
+  db %>% 
+  group_by(dpf > mean(dpf))
+
+  
+db_table2 <-
+  db_dpf %>%
+  summarise(
+    DiabetesPedigreeFunction=mean(dpf),
+    Glucose=mean(glu, na.rm = TRUE),
+    SkinThickness=mean(st, na.rm = TRUE),
+    Insulin=mean(ins, na.rm = TRUE),
+    BMI=mean(bmi, na.rm = TRUE)
+    )
+
+knitr::kable(db_table2, align= "c", digits = 4, caption = "Mean of each risk factors by DPF level")
+```
+
+
+# Conclusion
+
+-  According to CDC, the list of diabetes risk factors are: family history, age, prediabetes, overweight, physical inactivity, and race. The fact that age is the most significant risk factor of diabetes is well-known. Based on the analysis performed, age is proved to be a significant risk factor as prevalence of diabetes increases over age groups. The preliminary regression model supported that Diabetes Pedigree Function has significant association with onset of the disease. Also, all other risk factors examined in the analysis has association with diabetes as coressponding values are higher with the presence of the disease. The association between Diabetes Pedigree Function and glucose level, skin thickness, insulin level, and BMI are proven to be positive. Based on this result, further study could lead to the development of a diabetes risk prediction model and, furthermore, a prediction model for diabetes induced cardiac disease prevention.    
