@@ -1,7 +1,6 @@
 ---
 title: "Midterm Project - Diabetes Indicators"
-output: github_document
-always_allow_html: true
+output: html_document
 editor_options: 
   chunk_output_type: inline
 ---
